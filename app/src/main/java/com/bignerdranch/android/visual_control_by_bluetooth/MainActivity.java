@@ -3,7 +3,6 @@ package com.bignerdranch.android.visual_control_by_bluetooth;
 import android.Manifest;
 import android.bluetooth.BluetoothAdapter;
 import android.bluetooth.BluetoothDevice;
-import android.bluetooth.BluetoothSocket;
 import android.content.DialogInterface;
 import android.content.pm.ActivityInfo;
 import android.content.pm.PackageManager;
@@ -31,10 +30,7 @@ import org.opencv.core.Size;
 import org.opencv.imgproc.Imgproc;
 import org.tensorflow.contrib.android.TensorFlowInferenceInterface;
 
-import java.io.IOException;
-import java.io.OutputStream;
 import java.util.Set;
-import java.util.UUID;
 
 public class MainActivity extends AppCompatActivity implements CameraBridgeViewBase.CvCameraViewListener2 {
 
@@ -48,15 +44,9 @@ public class MainActivity extends AppCompatActivity implements CameraBridgeViewB
     private TextView mStatus;
 
     //下面是蓝牙传输的声明
-    private static final UUID BT_UUID = UUID.fromString("00001101-0000-1000-8000-00805F9B34FB");
-    private BluetoothAdapter mBluetoothAdapter;
-    private ArrayAdapter<String> mDevicesItemArrayAdapter;
-    private String mName;
-    private String mAddress;
+    private BluetoothAdapter mBluetoothAdapter = null;
     // bluetooth background worker thread to send and receive data
-    private ConnectedThread mConnectedThread;
-    private ConnectThread mConnectThread;
-    private boolean mAskConnect = false;
+    private SimpleBluetooth.ConnectThread mConnectThread;
 
     //下面是视觉识别的声明
     private static final String OCV_TAG = "OCVSample::Activity";
@@ -87,6 +77,9 @@ public class MainActivity extends AppCompatActivity implements CameraBridgeViewB
     private float[] outputs_data = new float[3];
     private int steps = 0;
 
+    public MainActivity() {
+    }
+
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
@@ -94,10 +87,27 @@ public class MainActivity extends AppCompatActivity implements CameraBridgeViewB
         setContentView(R.layout.activity_main);
 
         mStatus = findViewById(R.id.Status);
+
         //下面是蓝牙传输的方法调用
-        boolean mCheckOn = checkOn();
-        if (mCheckOn)
+        if (checkOn())
             askConnect();
+        else {
+            AlertDialog.Builder mDialog = new AlertDialog.Builder(this);
+            mDialog.setTitle("Can't open Program.")
+                    .setMessage("Bluetooth isn't on.\nTry again later.")
+                    .setPositiveButton("Fire", new DialogInterface.OnClickListener() {
+                        @Override
+                        public void onClick(DialogInterface dialog, int which) {
+                            finish();
+                        }
+                    })
+                    .setCancelable(false)
+                    .show();
+        }
+        if (SimpleBluetooth.displayToast) {
+            Toast.makeText(MainActivity.this, "Connected",
+                    Toast.LENGTH_SHORT).show();
+        }
 
         getWindow().addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
         tensorFlowInferenceInterface = new TensorFlowInferenceInterface(getAssets(), mode_file);
@@ -131,7 +141,7 @@ public class MainActivity extends AppCompatActivity implements CameraBridgeViewB
         super.onDestroy();
 
         mConnectThread.cancel();
-        mConnectedThread.cancel();
+        SimpleBluetooth.mConnectedThread.cancel();
 
         mOpenCvCameraView.disableView();
     }
@@ -183,23 +193,23 @@ public class MainActivity extends AppCompatActivity implements CameraBridgeViewB
             {
                 case 0:
                     ans = ans + "front";
-                    if (mAskConnect)
-                        mConnectedThread.write("A");
+                    if (SimpleBluetooth.mAskConnect)
+                        SimpleBluetooth.mConnectedThread.write("A");
                     break;
                 case 1:
                     ans = ans + "right";
-                    if (mAskConnect)
-                        mConnectedThread.write("D");
+                    if (SimpleBluetooth.mAskConnect)
+                        SimpleBluetooth.mConnectedThread.write("D");
                     break;
                 case 2:
                     ans = ans + "left";
-                    if (mAskConnect)
-                        mConnectedThread.write("C");
+                    if (SimpleBluetooth.mAskConnect)
+                        SimpleBluetooth.mConnectedThread.write("C");
                     break;
                 default:
                     ans = ans + "stop";
-                    if (mAskConnect)
-                        mConnectedThread.write("I");
+                    if (SimpleBluetooth.mAskConnect)
+                        SimpleBluetooth.mConnectedThread.write("I");
                     break;
             }
             Log.d("tag","cky---"+number);
@@ -286,52 +296,39 @@ public class MainActivity extends AppCompatActivity implements CameraBridgeViewB
 
 
     //下面是蓝牙传输的方法与类
-    private boolean checkOn() {
+    boolean checkOn() {
         //判断蓝牙是否打开
         mBluetoothAdapter = BluetoothAdapter.getDefaultAdapter();
-        if (!mBluetoothAdapter.isEnabled()) {
-            AlertDialog.Builder mDialog = new AlertDialog.Builder(this);
-            mDialog.setTitle("Can't open Program.")
-                    .setMessage("Bluetooth isn't on.\nTry again later.")
-                    .setPositiveButton("Fire", new DialogInterface.OnClickListener() {
-                        @Override
-                        public void onClick(DialogInterface dialog, int which) {
-                            finish();
-                        }
-                    })
-                    .setCancelable(false)
-                    .show();
-            return false;
-        }
-        return true;
+        return mBluetoothAdapter.isEnabled();
     }
 
-    private void askConnect() {
+    void askConnect() {
         //询问是否已连接设备
         AlertDialog.Builder mDialog = new AlertDialog.Builder(this);
-        mDialog.setTitle("Have you connected the device?")
-                .setMessage("\"Yes\" to go on.\n\"No\" to close and try again later.")
-                .setPositiveButton("yes", new DialogInterface.OnClickListener() {
-                    @Override
-                    public void onClick(DialogInterface dialog, int which) {
-                        selectDevice();
-                    }
-                })
-                .setNegativeButton("No", new DialogInterface.OnClickListener() {
-                    public void onClick(DialogInterface dialog, int id) {
-                        finish();
-                    }
-                })
-                .setCancelable(false)
-                .show();
+        mDialog.setTitle("Have you connected the device?");
+        mDialog.setMessage("\"Yes\" to go on.\n\"No\" to close and try again later.");
+        mDialog.setPositiveButton("yes", new DialogInterface.OnClickListener() {
+            @Override
+            public void onClick(DialogInterface dialog, int which) {
+                //询问成功后选择设备
+                selectDevice();
+            }
+        });
+        mDialog.setNegativeButton("No", new DialogInterface.OnClickListener() {
+            public void onClick(DialogInterface dialog, int id) {
+                finish();
+            }
+        });
+        mDialog.setCancelable(false);
+        mDialog.show();
     }
 
-    private void selectDevice() {
+    void selectDevice() {
         //已在系统设置里连接设备，因此只需要找到连接的设备。但是无法查询已连接设备列表，所以在此手动在已配对设备中选择
         //把配对的设备导到数组中
         Set<BluetoothDevice> pairedDevices = mBluetoothAdapter.getBondedDevices();
         if (pairedDevices.size() < 1) {
-            AlertDialog.Builder mDialog = new AlertDialog.Builder(this);
+            AlertDialog.Builder mDialog = new AlertDialog.Builder(MainActivity.this);
             mDialog.setTitle("Can't open Program.")
                     .setMessage("you connect no device.\nTry again later.")
                     .setPositiveButton("Fire", new DialogInterface.OnClickListener() {
@@ -342,121 +339,31 @@ public class MainActivity extends AppCompatActivity implements CameraBridgeViewB
                     })
                     .setCancelable(false)
                     .show();
-        }
-        mDevicesItemArrayAdapter = new ArrayAdapter<>(this, android.R.layout.simple_list_item_1);
-        for (BluetoothDevice device : pairedDevices)
-            mDevicesItemArrayAdapter.add(device.getName() + "\n\t" + device.getAddress());
-        //在对话框中显示与选择后再显示出来
-        AlertDialog.Builder mDialog2 = new AlertDialog.Builder(this);
-        mDialog2.setTitle("Select the device.")
-                .setAdapter(mDevicesItemArrayAdapter, new DialogInterface.OnClickListener() {
-                    public void onClick(DialogInterface dialog, int which) {
-                        String mDeviceString = mDevicesItemArrayAdapter.getItem(which);
-                        mName = mDeviceString.substring(0, mDeviceString.indexOf("\n"));
-                        mAddress = mDeviceString.substring(mDeviceString.indexOf("\t") + 1);
-                        mStatus.setText(mName + "\n\t" + mAddress);
-                        //建立传输信息通道
-                        mConnectThread = new ConnectThread(mBluetoothAdapter.getRemoteDevice(mAddress));
-                        mConnectThread.run();
-                    }
-                })
-                .setNegativeButton("None", new DialogInterface.OnClickListener() {
-                    public void onClick(DialogInterface dialog, int id) {
-                        finish();
-                    }
-                })
-                .setCancelable(false)
-                .show();
-    }
-
-    private class ConnectThread extends Thread {
-        private BluetoothSocket mmSocket;
-        private BluetoothDevice mmDevice;
-
-        ConnectThread(BluetoothDevice device) {
-            // Use a temporary object that is later assigned to mmSocket,
-            // because mmSocket is final
-            BluetoothSocket tmp = null;
-            mmDevice = device;
-
-            // Get a BluetoothSocket to connect with the given BluetoothDevice
-            try {
-                // MY_UUID is the app's UUID string, also used by the server code
-                tmp = device.createRfcommSocketToServiceRecord(BT_UUID);
-            } catch (IOException ignored) { }
-            mmSocket = tmp;
-        }
-
-        public void run() {
-            try {
-                // Connect the device through the socket. This will block
-                // until it succeeds or throws an exception
-                mmSocket.connect();
-            } catch (IOException connectException) {
-                // Unable to connect; close the socket and get out
-                //下面处理是在 StackOverflow 找的，貌似没用上
-                Log.e("Socket connect:",connectException.getMessage());
-                try {
-                    Log.e("","trying fallback...");
-                    mmSocket =(BluetoothSocket) mmDevice.getClass().getMethod("createRfcommSocket", new Class[] {int.class}).invoke(mmDevice,1);
-                    mmSocket.connect();
-                    Log.e("","Connected");
-                } catch (Exception e2) {
-                    Log.e("", "Couldn't establish Bluetooth connection!\n" + e2.getMessage());
-                    try {
-                        mmSocket.close();
-                    } catch (IOException ignored) { }
-                    return;
-                }
-            }
-            Toast.makeText(getBaseContext(), "Connected",
-                    Toast.LENGTH_SHORT).show();
-            // Do work to manage the connection (in a separate thread)
-            mConnectedThread = new ConnectedThread(mmSocket);
-            mConnectedThread.start();
-            mAskConnect = true;
-        }
-
-        /** Will cancel an in-progress connection, and close the socket */
-        void cancel() {
-            try {
-                mmSocket.close();
-            } catch (IOException ignored) { }
-        }
-    }
-
-    private class ConnectedThread extends Thread {
-        private final BluetoothSocket mmSocket;
-        private final OutputStream mmOutStream;
-
-        ConnectedThread(BluetoothSocket socket) {
-            mmSocket = socket;
-            OutputStream tmpOut = null;
-
-            // Get the output streams, using temp objects because
-            // member streams are final
-            try {
-                tmpOut = socket.getOutputStream();
-            } catch (IOException ignored) { }
-
-            mmOutStream = tmpOut;
-        }
-
-        /* Call this from the main activity to send data to the remote device */
-        void write(String input) {
-            byte[] bytes = input.getBytes();           //converts entered String into bytes
-            try {
-                mmOutStream.write(bytes);
-            } catch (IOException e) {
-                Log.e("OutStream write:",e.getMessage());
-            }
-        }
-
-        /* Call this from the main activity to shutdown the connection */
-        void cancel() {
-            try {
-                mmSocket.close();
-            } catch (IOException ignored) { }
+        } else {
+            final ArrayAdapter<String> mDevicesItemArrayAdapter = new ArrayAdapter<>(MainActivity.this, android.R.layout.simple_list_item_1);
+            for (BluetoothDevice device : pairedDevices)
+                mDevicesItemArrayAdapter.add(device.getName() + "\n\t" + device.getAddress());
+            //在对话框中显示与选择后再显示出来
+            AlertDialog.Builder mDialog2 = new AlertDialog.Builder(MainActivity.this);
+            mDialog2.setTitle("Select the device.")
+                    .setAdapter(mDevicesItemArrayAdapter, new DialogInterface.OnClickListener() {
+                        public void onClick(DialogInterface dialog, int which) {
+                            String mDeviceString = mDevicesItemArrayAdapter.getItem(which);
+                            String mName = mDeviceString.substring(0, mDeviceString.indexOf("\n"));
+                            String mAddress = mDeviceString.substring(mDeviceString.indexOf("\t") + 1);
+                            mStatus.setText(mName + "\n\t" + mAddress);
+                            //建立传输信息通道
+                            mConnectThread = new SimpleBluetooth.ConnectThread(mBluetoothAdapter.getRemoteDevice(mAddress));
+                            mConnectThread.run();
+                        }
+                    })
+                    .setNegativeButton("None", new DialogInterface.OnClickListener() {
+                        public void onClick(DialogInterface dialog, int id) {
+                            finish();
+                        }
+                    })
+                    .setCancelable(false)
+                    .show();
         }
     }
 }
