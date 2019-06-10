@@ -1,24 +1,42 @@
 package com.bignerdranch.android.visual_control_by_bluetooth;
 
+import android.bluetooth.BluetoothAdapter;
 import android.bluetooth.BluetoothDevice;
 import android.bluetooth.BluetoothSocket;
 import android.util.Log;
 
 import java.io.IOException;
 import java.io.OutputStream;
+import java.io.Serializable;
 import java.util.UUID;
 
-class SimpleBluetooth {
+class SimpleBluetooth implements Serializable {
 
     //下面是蓝牙传输的声明
-    private static final UUID BT_UUID = UUID.fromString("00001101-0000-1000-8000-00805F9B34FB");
+    private UUID BT_UUID = UUID.randomUUID();
     // bluetooth background worker thread to send and receive data
-    protected static ConnectedThread mConnectedThread;
-    static boolean mAskConnect = false;
-    static boolean displayToast = false;
+    private BluetoothAdapter mBluetoothAdapter;
+    private SimpleBluetooth.ConnectThread mConnectThread;
+    private ConnectedThread mConnectedThread;
+    private boolean ConnectSuccess = false;
 
+    SimpleBluetooth() {
+        mBluetoothAdapter = BluetoothAdapter.getDefaultAdapter();
+    }
 
-    static class ConnectThread extends Thread {
+    boolean ConnectDevice(String address) {
+        //建立传输信息通道
+        mConnectThread = new SimpleBluetooth.ConnectThread(mBluetoothAdapter.getRemoteDevice(address));
+        mConnectThread.run();
+        return ConnectSuccess;
+    }
+
+    void ConnectCancel() {
+        mConnectThread.cancel();
+        mConnectedThread.cancel();
+    }
+
+    class ConnectThread extends Thread {
         private BluetoothSocket mmSocket;
         private BluetoothDevice mmDevice;
 
@@ -58,11 +76,10 @@ class SimpleBluetooth {
                     return;
                 }
             }
-            displayToast = true;
+            ConnectSuccess = true;
             // Do work to manage the connection (in a separate thread)
             mConnectedThread = new ConnectedThread(mmSocket);
             mConnectedThread.start();
-            mAskConnect = true;
         }
 
         /** Will cancel an in-progress connection, and close the socket */
@@ -73,7 +90,7 @@ class SimpleBluetooth {
         }
     }
 
-    static class ConnectedThread extends Thread {
+    class ConnectedThread extends Thread {
         private final BluetoothSocket mmSocket;
         private final OutputStream mmOutStream;
 
@@ -106,5 +123,13 @@ class SimpleBluetooth {
                 mmSocket.close();
             } catch (IOException ignored) { }
         }
+    }
+
+    BluetoothAdapter getBluetoothAdapter() {
+        return mBluetoothAdapter;
+    }
+
+    ConnectedThread getConnectedThread() {
+        return mConnectedThread;
     }
 }

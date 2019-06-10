@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<org.opencv.android.JavaCameraView
+    xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:id="@+id/tutorial1_activity_java_surface_view"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    app:show_fps="true">
+
+</org.opencv.android.JavaCameraView>
