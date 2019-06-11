@@ -13,12 +13,12 @@ import java.util.UUID;
 class SimpleBluetooth implements Serializable {
 
     //下面是蓝牙传输的声明
-    private UUID BT_UUID = UUID.randomUUID();
+    private transient UUID BT_UUID = UUID.randomUUID();
     // bluetooth background worker thread to send and receive data
-    private BluetoothAdapter mBluetoothAdapter;
-    private SimpleBluetooth.ConnectThread mConnectThread;
-    private ConnectedThread mConnectedThread;
-    private boolean ConnectSuccess = false;
+    private transient BluetoothAdapter mBluetoothAdapter;
+    private transient ConnectThread mConnectThread;
+    private transient ConnectedThread mConnectedThread;
+    private transient boolean ConnectSuccess = false;
 
     SimpleBluetooth() {
         mBluetoothAdapter = BluetoothAdapter.getDefaultAdapter();
@@ -36,7 +36,7 @@ class SimpleBluetooth implements Serializable {
         mConnectedThread.cancel();
     }
 
-    class ConnectThread extends Thread {
+    class ConnectThread extends Thread implements Serializable {
         private BluetoothSocket mmSocket;
         private BluetoothDevice mmDevice;
 
@@ -90,7 +90,7 @@ class SimpleBluetooth implements Serializable {
         }
     }
 
-    class ConnectedThread extends Thread {
+    class ConnectedThread extends Thread implements Serializable {
         private final BluetoothSocket mmSocket;
         private final OutputStream mmOutStream;
 
@@ -131,5 +131,9 @@ class SimpleBluetooth implements Serializable {
 
     ConnectedThread getConnectedThread() {
         return mConnectedThread;
+    }
+
+    public boolean isConnectSuccess() {
+        return ConnectSuccess;
     }
 }

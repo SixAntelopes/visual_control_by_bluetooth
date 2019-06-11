@@ -8,7 +8,6 @@ import android.content.pm.ActivityInfo;
 import android.content.pm.PackageManager;
 import android.os.Trace;
 import android.support.annotation.Nullable;
-import android.support.v4.app.FragmentActivity;
 import android.support.v7.app.AppCompatActivity;
 import android.os.Bundle;
 import android.util.Log;
@@ -38,10 +37,11 @@ public class VisualControlActivity extends AppCompatActivity implements CameraBr
         System.loadLibrary("tensorflow_inference");
     }
 
-    /*******************************
-     * 这是MainFragment启动此Activity并附加信息所需要用到的Intent实现，不需要动
-     ******************************/
+    /***********
+     * 不需要动 *
+     ***********/
     //范围开始{
+    //这是MainFragment启动此Activity并附加信息所需要用到的Intent实现
     public static final String EXTRA_VISUAL_CONTROL_ID =
             "com.bignerdranch.android.criminalintent.visual_control_id";
     public static Intent newIntent(Context packageContext, SimpleBluetooth simpleBluetooth) {
@@ -51,6 +51,9 @@ public class VisualControlActivity extends AppCompatActivity implements CameraBr
     }
     //蓝牙对象的声明
     private SimpleBluetooth mSimpleBluetooth;
+    private void SendOrder(String i) {
+        mSimpleBluetooth.getConnectedThread().write(i);
+    }
     //范围结束}
 
     //下面是视觉识别的声明
@@ -91,6 +94,10 @@ public class VisualControlActivity extends AppCompatActivity implements CameraBr
         /**这个是从前面的fragment获取蓝牙对象，不需要动**/
         mSimpleBluetooth = (SimpleBluetooth) getIntent()
                 .getSerializableExtra(VisualControlActivity.EXTRA_VISUAL_CONTROL_ID);
+        if (!mSimpleBluetooth.isConnectSuccess()) {
+            Log.d("Fail", "Bluetooth doesn't connected\n");
+            finish();
+        }
 
 
         getWindow().addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
@@ -171,25 +178,25 @@ public class VisualControlActivity extends AppCompatActivity implements CameraBr
             int number = toNumber();
             ans = "";
             /*****************************
-             * 使用 mSimpleBluetooth.getConnectedThread().write() 来传输数据
+             * 使用 SendOrder() 来传输数据
              *****************************/
             switch (number)
             {
                 case 0:
                     ans = ans + "front";
-                    mSimpleBluetooth.getConnectedThread().write("A");
+                    SendOrder("A");
                     break;
                 case 1:
                     ans = ans + "right";
-                    mSimpleBluetooth.getConnectedThread().write("D");
+                    SendOrder("D");
                     break;
                 case 2:
                     ans = ans + "left";
-                    mSimpleBluetooth.getConnectedThread().write("C");
+                    SendOrder("C");
                     break;
                 default:
                     ans = ans + "stop";
-                    mSimpleBluetooth.getConnectedThread().write("I");
+                    SendOrder("I");
                     break;
             }
             Log.d("tag","cky---"+number);
