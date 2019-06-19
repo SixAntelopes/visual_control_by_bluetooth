@@ -133,7 +133,7 @@ class SimpleBluetooth implements Serializable {
         return mConnectedThread;
     }
 
-    public boolean isConnectSuccess() {
+    boolean isConnectSuccess() {
         return ConnectSuccess;
     }
 }

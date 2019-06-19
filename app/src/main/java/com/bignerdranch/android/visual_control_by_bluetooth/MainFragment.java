@@ -22,6 +22,7 @@ public class MainFragment extends Fragment implements View.OnClickListener {
     private static final int REQUEST_PAIRED = 0;
     private static final int REQUEST_DISCOVER = 1;
     private SimpleBluetooth mSimpleBluetooth;
+    private String mAddress;
 
     private TextView mStatus;
     private Button mPairedButton;
@@ -96,7 +97,7 @@ public class MainFragment extends Fragment implements View.OnClickListener {
         start.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
-                Intent intent = VisualControlActivity.newIntent(getContext(), mSimpleBluetooth);
+                Intent intent = VisualControlActivity.newIntent(getContext(), mAddress);
                 startActivity(intent);
             }
         });
@@ -141,14 +142,15 @@ public class MainFragment extends Fragment implements View.OnClickListener {
         if (requestCode == REQUEST_PAIRED) {
             String deviceString = (String) data
                     .getSerializableExtra(ConnectPairedFragment.EXTRA_PAIRED);
-            mStatus.setText(deviceString);
-            String mAddress = deviceString.substring(deviceString.indexOf("\t") + 1);
+            mAddress = deviceString.substring(deviceString.indexOf("\t") + 1);
             //连接设备！
             if (!BluetoothAdapter.checkBluetoothAddress(mAddress)) {
+                mStatus.setText("蓝牙地址有误，不能连接！");
                 Toast.makeText(getActivity(), "蓝牙地址有误，不能连接！",
-                        Toast.LENGTH_SHORT).show();
+                        Toast.LENGTH_LONG).show();
             }
             else if (mSimpleBluetooth.ConnectDevice(mAddress)) {
+                mStatus.setText(deviceString);
                 Toast.makeText(getActivity(), "连接设备成功！",
                     Toast.LENGTH_LONG).show();
                 go.setEnabled(true);
@@ -158,6 +160,7 @@ public class MainFragment extends Fragment implements View.OnClickListener {
                 back.setEnabled(true);
                 start.setEnabled(true);
             } else {
+                mStatus.setText("连接设备失败！请重试吧！");
                 Toast.makeText(getActivity(), "连接设备失败！请重试吧！",
                         Toast.LENGTH_LONG).show();
             }

@@ -73,7 +73,7 @@ public class ConnectDiscoveredFragment extends DialogFragment {
                         sendResult(Activity.RESULT_OK, deviceString);
                     }
                 })
-                .setPositiveButton(android.R.string.ok, null)
+                .setPositiveButton(android.R.string.cancel, null)
                 .create();
     }
 

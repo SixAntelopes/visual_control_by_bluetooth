@@ -9,6 +9,11 @@ android {
         versionCode 1
         versionName "1.0"
         testInstrumentationRunner "android.support.test.runner.AndroidJUnitRunner"
+        externalNativeBuild {
+            cmake {
+                cppFlags ""
+            }
+        }
     }
     buildTypes {
         release {
@@ -16,9 +21,9 @@ android {
             proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
         }
     }
-    sourceSets{
-        main{
-            jniLibs.srcDirs = ['libs']
+    externalNativeBuild {
+        cmake {
+            path file('CMakeLists.txt')
         }
     }
 }
@@ -30,6 +35,17 @@ dependencies {
     testImplementation 'junit:junit:4.12'
     androidTestImplementation 'com.android.support.test:runner:1.0.2'
     androidTestImplementation 'com.android.support.test.espresso:espresso-core:3.0.2'
+
     implementation project(':openCVLibrary320')
-    implementation files('libs/libandroid_tensorflow_inference_java.jar')
+    implementation 'org.tensorflow:tensorflow-android:1.13.1'
+    implementation fileTree(dir: "$buildDir/native-libs",include: 'native-libs.jar')
+}
+task nativeLibsToJar(type: Jar,description:'create a jar archive of the native libs'){
+    destinationDir file("$buildDir/native-libs")
+    baseName 'native-libs'
+    from fileTree(dir: 'libs',include: '**/*.so')
+    into 'lib/'
+}
+tasks.withType(JavaCompile){
+    compileTask -> compileTask.dependsOn(nativeLibsToJar)
 }
