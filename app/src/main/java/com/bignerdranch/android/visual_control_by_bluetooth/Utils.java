@@ -100,20 +100,19 @@ public class Utils {
         int mouthRightX = landmark[4].x;
         int mouthRightY = landmark[4].y;
 
+        //鼻子与左或右眼的距离占两眼距离一定比例，说明转头到一定程度
         double eye = (eyeRightX-eyeLeftX);
         double eyeR = eye/(eyeRightX-noseX);
-        //鼻子比左眼左嘴都左，就左转
         if (eyeR > 0 && eyeR < 1.2) return 1;
-        //鼻子比右眼右嘴都右，就右转
         double eyeL = eye/(noseX-eyeLeftX);
         if (eyeL > 0 && eyeL < 1.1) return 2;
 //        if ((noseX-eyeRightX)>-10 && (noseX-mouthRightX)>-10) return 2;
         //鼻子和眼睛距离比和嘴距离大2.5倍，就后退
-        eye = (eyeLeftY+eyeRightY)/2.0;
-        double mouth = (mouthLeftY+mouthRightY)/2.0;
+        eye = Math.min(eyeLeftY, eyeRightY); //todo (eyeLeftY+eyeRightY)/2.0;
+        double mouth = Math.max(mouthLeftY, mouthRightY); //todo (mouthLeftY+mouthRightY)/2.0;
         double eye2mouth = mouth - eye;
-        if (eye2mouth/(mouth - noseY) > 3) return 3;
-        if (eye2mouth/(noseY - eye) > 2.5) return 4;
+        if (eye2mouth/(mouth - noseY) > 2.7) return 3;
+        if (eye2mouth/(noseY - eye) > 2.7) return 4;
 //        if (((noseY - eye) > (mouth - noseY)*2)) return 3;
 //        if (((noseY - eye)*2.5 < (mouth - noseY))) return 4;
         return 0;
